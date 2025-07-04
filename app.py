@@ -114,4 +114,10 @@ def submit_rating():
 
 # --- Run ---
 if __name__ == '__main__':
-    app.run(debug=True)
+    import os
+
+    if not os.path.exists('uploads'):
+        os.makedirs('uploads')
+
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
