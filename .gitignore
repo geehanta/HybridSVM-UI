@@ -1,6 +1,7 @@
 # Ignore all joblib model files
 *.joblib
-
+model/*.joblib
+uploads/
 # Ignore uploaded files
 #uploads/
 

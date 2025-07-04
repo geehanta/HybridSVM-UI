@@ -1,59 +1,105 @@
 import os
-from flask import Flask, render_template, request, redirect, flash, jsonify
-from werkzeug.utils import secure_filename
+import csv
 import joblib
 import cv2
-import csv
-from datetime import datetime
 import numpy as np
+from datetime import datetime
+from flask import Flask, render_template, request, redirect, flash, jsonify, session
+from werkzeug.utils import secure_filename
 
+# --- Configuration ---
 UPLOAD_FOLDER = 'uploads'
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
+MODEL_FOLDER = 'model'
+MODEL_FILENAME = 'hybrid_model.joblib'
+ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg'}
 
 app = Flask(__name__)
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.secret_key = 'supersecretkey'
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['MODEL_FOLDER'] = MODEL_FOLDER
+app.config['SESSION_TYPE'] = 'filesystem'
 
-# Load model
-model = joblib.load("model/hybrid_model.joblib")
+# --- Ensure folders exist ---
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(MODEL_FOLDER, exist_ok=True)
 
-# Utility: check file extension
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+model = None
 
-# Utility: preprocess image
+# --- Utilities ---
+def allowed_image(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_IMAGE_EXTENSIONS
+
+def load_model():
+    global model
+    model_path = os.path.join(MODEL_FOLDER, MODEL_FILENAME)
+    if os.path.exists(model_path):
+        model = joblib.load(model_path)
+    else:
+        model = None
+
 def preprocess_image(image_path):
     image = cv2.imread(image_path)
     image = cv2.resize(image, (64, 64))
     image = image / 255.0
     image = image.flatten()
-    image = np.expand_dims(image, axis=0)
-    return image
+    return np.expand_dims(image, axis=0)
 
+# --- Routes ---
 @app.route('/', methods=['GET', 'POST'])
 def index():
-    if request.method == 'POST':
-        if 'image' not in request.files:
-            flash('No file part')
-            return redirect(request.url)
+    global model
+    model_path = os.path.join(MODEL_FOLDER, MODEL_FILENAME)
 
+    # Handle model upload
+    if 'model_file' in request.files:
+        file = request.files['model_file']
+        if file.filename.endswith('.joblib'):
+            file.save(model_path)
+            load_model()
+            session['model_just_uploaded'] = True  # ✅ flash trigger
+            return redirect('/')
+        else:
+            flash("Please upload a valid .joblib file.")
+            return redirect('/')
+
+    # Load model if already uploaded
+    model_loaded = os.path.exists(model_path)
+    if model_loaded and model is None:
+        load_model()
+
+    # One-time toast after model upload
+    model_just_uploaded = session.pop('model_just_uploaded', False)
+
+    prediction_result = None
+    uploaded = False
+    image_name = None
+
+    # Handle image prediction
+    if request.method == 'POST' and 'image' in request.files and model_loaded:
         file = request.files['image']
         if file.filename == '':
-            flash('No selected file')
-            return redirect(request.url)
+            flash('No image selected.')
+            return redirect('/')
 
-        if file and allowed_file(file.filename):
+        if allowed_image(file.filename):
             filename = secure_filename(file.filename)
-            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            filepath = os.path.join(UPLOAD_FOLDER, filename)
             file.save(filepath)
 
             img = preprocess_image(filepath)
             prediction = model.predict(img)[0]
+            prediction_result = 'Cancerous' if prediction == 1 else 'Benign'
+            uploaded = True
+            image_name = filename
 
-            result = 'Cancerous' if prediction == 1 else 'Benign'
-            return render_template('index.html', prediction=result, uploaded=True, image=filename)
-
-    return render_template('index.html', uploaded=False)
+    return render_template(
+        'index.html',
+        model_loaded=model_loaded,
+        model_just_uploaded=model_just_uploaded,
+        prediction=prediction_result,
+        uploaded=uploaded,
+        image=image_name
+    )
 
 @app.route('/submit-rating', methods=['POST'])
 def submit_rating():
@@ -66,7 +112,6 @@ def submit_rating():
         return jsonify({'message': 'Thanks for your feedback!'})
     return jsonify({'message': 'Invalid rating.'})
 
+# --- Run ---
 if __name__ == '__main__':
-    if not os.path.exists('uploads'):
-        os.makedirs('uploads')
     app.run(debug=True)
