@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: cancer-scan-app
+    env: python
+    plan: free
+    runtime: python
+    buildCommand: ""
+    startCommand: gunicorn app:app
+    autoDeploy: true
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: PYTHON_VERSION
+        value: 3.10.12
