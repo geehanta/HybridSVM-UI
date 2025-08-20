@@ -6,6 +6,7 @@ import numpy as np
 from datetime import datetime
 from flask import Flask, render_template, request, redirect, flash, jsonify, session
 from werkzeug.utils import secure_filename
+from flask import send_file
 
 # --- Configuration ---
 UPLOAD_FOLDER = 'uploads'
@@ -111,6 +112,16 @@ def submit_rating():
             writer.writerow([timestamp, rating])
         return jsonify({'message': 'Thanks for your feedback!'})
     return jsonify({'message': 'Invalid rating.'})
+
+# --- New route to download feedback CSV ---
+@app.route('/download-feedback', methods=['GET'])
+def download_feedback():
+    feedback_file = 'model_feedback.csv'
+    if os.path.exists(feedback_file):
+        return send_file(feedback_file, as_attachment=True)
+    else:
+        flash("No feedback file found.")
+        return redirect('/')
 
 # --- Run ---
 if __name__ == '__main__':

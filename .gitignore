@@ -4,6 +4,13 @@ model/*.joblib
 uploads/
 # Ignore uploaded files
 #uploads/
+# Ignore tester script
+tester.py
+# Ignore validation data folders and all contents
+validation/
+validation/*
+# Ignore the generated CSV output file
+correct_predictions.csv
 
 # Ignore Python cache
 __pycache__/
