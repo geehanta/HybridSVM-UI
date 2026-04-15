@@ -55,19 +55,39 @@
 
     <!--  Model Upload Form (only if not loaded) -->
     {% if not model_loaded %}
-      <form method="POST" enctype="multipart/form-data" class="card p-4 shadow mb-4">
-        <div class="mb-3">
-          <label for="model_file" class="form-label">
-      Upload Model File (.joblib) &nbsp;
-      <a href="https://www.dropbox.com/scl/fi/le2s84sy9gq4f41cqwf1n/hybrid_modelv1.joblib?rlkey=ejas4oxb40zkwzzwg7cea5jyb&st=edlreh2q&dl=1" 
-         target="_blank" class="text-decoration-none">
-        (Download latest)
-      </a>
-    </label>
-          <input class="form-control" type="file" name="model_file" accept=".joblib" required>
-        </div>
-        <button class="btn btn-secondary" type="submit">Load Model</button>
-      </form>
+      <div class="card p-4 shadow mb-4">
+        <h5 class="mb-3">Load Model Pipeline</h5>
+        <p class="text-muted small mb-3">
+          Upload all four artefacts saved from the notebook
+          (<code>hybrid_search_model.joblib</code>, <code>scaler.joblib</code>,
+          <code>pca.joblib</code>, <code>best_threshold.npy</code>).
+        </p>
+        <form method="POST" enctype="multipart/form-data">
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">SVM Model <span class="text-danger">*</span></label>
+              <input class="form-control form-control-sm" type="file" name="svm_file" accept=".joblib" required>
+              <div class="form-text">hybrid_search_model.joblib</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Scaler <span class="text-danger">*</span></label>
+              <input class="form-control form-control-sm" type="file" name="scaler_file" accept=".joblib" required>
+              <div class="form-text">scaler.joblib</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">PCA <span class="text-danger">*</span></label>
+              <input class="form-control form-control-sm" type="file" name="pca_file" accept=".joblib" required>
+              <div class="form-text">pca.joblib</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Threshold <span class="text-danger">*</span></label>
+              <input class="form-control form-control-sm" type="file" name="threshold_file" accept=".npy" required>
+              <div class="form-text">best_threshold.npy</div>
+            </div>
+          </div>
+          <button class="btn btn-secondary" type="submit">Load Pipeline</button>
+        </form>
+      </div>
     {% endif %}
 
     <!--  Prediction Form (only if model loaded) -->
@@ -78,14 +98,25 @@
           <input class="form-control" type="file" name="image" id="image" accept="image/*" required>
         </div>
         <button class="btn btn-dark" type="submit">Predict</button>
-        
       </form>
+    {% endif %}
+
+    <!--  Error message -->
+    {% if error %}
+      <div class="alert alert-danger mt-4 text-center">
+        <strong>Error:</strong> {{ error }}
+      </div>
     {% endif %}
 
     <!--  Show prediction and feedback after prediction -->
     {% if uploaded %}
-      <div class="alert alert-info mt-4 text-center">
+      <div class="alert {{ 'alert-danger' if prediction == 'Cancerous' else 'alert-success' }} mt-4 text-center">
         <strong>Prediction:</strong> {{ prediction }}
+        {% if confidence is not none %}
+          &nbsp;&mdash;&nbsp;
+          <strong>Confidence:</strong> {{ confidence }}%
+          <span class="text-muted small">(threshold: {{ "%.2f"|format(threshold) }})</span>
+        {% endif %}
       </div>
 
       <div class="card p-4 shadow mt-3 text-center">
@@ -95,18 +126,12 @@
           <button class="btn btn-outline-danger" onclick="submitRating(0)">👎</button>
         </div>
         <div id="feedbackToast" class="alert alert-success d-none" role="alert">
-          Thanks for your feedback! It helps improve our model. 
-          
+          Thanks for your feedback! It helps improve our model.
         </div>
 
         <form method="GET" action="/" class="mt-3">
           <button type="submit" class="btn btn-outline-secondary">Reset Prediction</button>
         </form>
-        {% if model_loaded %}
-    <a href="{{ url_for('download_feedback') }}" class="btn btn-primary">
-        Download Feedback CSV
-    </a>
-{% endif %}
       </div>
     {% endif %}
   </div>
